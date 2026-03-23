@@ -3,20 +3,79 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
-import plotly.express as px
 import plotly.graph_objects as go
+import warnings
+warnings.filterwarnings('ignore')
 
-st.set_page_config(page_title="Customer VIP Conversion Predictor", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="VIP Predictor", layout="wide", initial_sidebar_state="collapsed")
 
+# --- PREMIUM CSS STYLING ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; color: #0F172A !important; }
-    [data-testid="stMetricValue"] { color: #2563EB !important; font-size: 3rem !important; font-weight: 700 !important; }
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Outfit', sans-serif !important;
+    }
+    
+    .main {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #f8fafc;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        color: #f8fafc !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.5px;
+    }
+    
+    .stSlider > div > div > div > div {
+        background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%) !important;
+    }
+    
+    /* Glassmorphism Cards */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 40px rgba(59, 130, 246, 0.2);
+    }
+    
+    /* Metric styling */
+    [data-testid="stMetricValue"] {
+        background: -webkit-linear-gradient(45deg, #60a5fa, #34d399);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 3.5rem !important;
+        font-weight: 800 !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #94a3b8 !important;
+        font-size: 1.1rem !important;
+        font-weight: 500 !important;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    hr {
+        border-color: rgba(255,255,255,0.1) !important;
+    }
+    
+    .stMarkdown { color: #cbd5e1; }
+    
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
+# --- Define Paths ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(CURRENT_DIR, "data", "processed_data.csv")
 MODEL_PATH = os.path.join(CURRENT_DIR, "model", "trained_model.pkl")
@@ -36,99 +95,115 @@ def load_ml_model():
 df = load_data()
 model = load_ml_model()
 
-st.title("Customer VIP Conversion & Lifetime Value Predictor")
-st.markdown("##### Data-driven intelligence predicting the probability of future VIP purchasing behavior to optimize retention marketing.")
-st.divider()
+# --- HEADER ---
+st.markdown("<h1 style='text-align: center; font-size: 3rem; margin-bottom: 0;'>Predictive VIP Retention Engine</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 1.2rem; margin-top: 5px; margin-bottom: 40px;'>Empowered by Advanced XGBoost & K-Means Clustering to forecast lifetime value.</p>", unsafe_allow_html=True)
 
 if df is None or model is None:
-    st.error("System dependencies not found. Please ensure the notebooks have been fully executed to generate processed data and models.")
+    st.error("System dependencies not found. Please assure notebooks have generated processed_data.csv and trained_model.pkl.")
     st.stop()
 
-# Extract model input features
-model_features = df.drop(columns=['CustomerID', 'converted']).columns.tolist()
+# --- SAFETY: Extract True Expected Features from XGBoost ---
+# XGBoost natively stores expected feature names. We use this to prevent any shape/key mismatches!
+expected_features = model.get_booster().feature_names
 
-col1, col2 = st.columns([1, 2], gap="large")
+# Layout: 2 Columns
+col1, col2 = st.columns([1.2, 2], gap="large")
 
 with col1:
-    st.subheader("Customer Profile Input")
-    st.write("Adjust the behavioral metrics below to simulate a customer. The AI will instantly predict their probability of becoming a future returning VIP.")
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.markdown("### Profile Configuration")
     
-    input_recency = st.slider("Recency (Days Since Last Purchase)", min_value=1, max_value=365, value=30)
+    input_recency = st.slider("Recency (Days Since Last Purchase)", min_value=1, max_value=360, value=30)
     input_frequency = st.slider("Frequency (Total Unique Purchases)", min_value=1, max_value=150, value=5)
+    
+    # We display Monetary Value for UX, but we won't feed it to the model if it was dropped during training!
     input_monetary = st.slider("Historical Value ($)", min_value=10, max_value=10000, value=500)
-    input_conv_days = st.slider("Time to Conversion (Days)", min_value=0, max_value=365, value=10)
+    input_conv_days = st.slider("Time to Initial Conversion (Days)", min_value=0, max_value=365, value=10)
     
-    # Base dataframe with zeros for all distinct model features (like dummy countries and segments)
-    input_data = {col: 0 for col in model_features}
-    input_data['Recency'] = input_recency
-    input_data['Frequency'] = input_frequency
-    input_data['MonetaryValue'] = input_monetary
-    input_data['time_to_conversion_days'] = input_conv_days
-    # Default Segment assigned mapping
-    input_data['Segment'] = 2 
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    input_df = pd.DataFrame([input_data])
+    # Build dictionary matching exactly what the model expects
+    input_data = {col: 0 for col in expected_features}
     
-    # Predict Probability
+    if 'Recency' in input_data: input_data['Recency'] = input_recency
+    if 'Frequency' in input_data: input_data['Frequency'] = input_frequency
+    if 'MonetaryValue' in input_data: input_data['MonetaryValue'] = input_monetary
+    if 'time_to_conversion_days' in input_data: input_data['time_to_conversion_days'] = input_conv_days
+    if 'Segment' in input_data: input_data['Segment'] = 2 # Best demographic
+    
+    input_df = pd.DataFrame([input_data])[expected_features] # Extremely strict column lock
+    
     prob = model.predict_proba(input_df)[0][1] * 100
-    prediction_label = "High-Value VIP" if prob > 50 else "High Churn Risk"
+    prediction_label = "Premium VIP" if prob > 50 else "High Churn Risk"
     
-    st.divider()
-    st.metric(label="Probability of Future VIP Retention", value=f"{prob:.1f}%")
-    st.markdown(f"**Predicted Category:** {prediction_label}")
+    st.markdown("<br><div class='glass-card'>", unsafe_allow_html=True)
+    st.metric(label="VIP Conversion Probability", value=f"{prob:.1f}%")
+    st.markdown(f"<h4 style='color: {'#34d399' if prob>50 else '#f87171'};'>Target Classified As: {prediction_label}</h4>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
-    st.subheader("Customer Positioning in Machine Learning Space")
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.markdown("### Dynamic Algorithmic Positioning")
     
     fig = go.Figure()
 
-    # Base data
+    # Base scatter data - Dark premium theme
     fig.add_trace(go.Scatter(
         x=df[df['converted']==0]['Frequency'], y=df[df['converted']==0]['MonetaryValue'],
-        mode='markers', name='Churned Baseline',
-        marker=dict(color='#94A3B8', size=6, opacity=0.4), hoverinfo='none'
+        mode='markers', name='Churned Demographics',
+        marker=dict(color='#475569', size=5, opacity=0.3), hoverinfo='none'
     ))
     fig.add_trace(go.Scatter(
         x=df[df['converted']==1]['Frequency'], y=df[df['converted']==1]['MonetaryValue'],
-        mode='markers', name='Actual VIP Baseline',
-        marker=dict(color='#2563EB', size=6, opacity=0.6), hoverinfo='none'
+        mode='markers', name='Actual VIP Demographic',
+        marker=dict(color='#3b82f6', size=7, opacity=0.7), hoverinfo='none'
     ))
 
-    # Simulated dot
+    # Pulsing simulation dot
     fig.add_trace(go.Scatter(
         x=[input_frequency], y=[input_monetary],
-        mode='markers+text', name='Simulated Customer',
-        marker=dict(color='#0F172A', size=20, symbol='star', line=dict(color='yellow', width=2)),
-        text=[f'Simulated ({prob:.0f}%)'], textposition="top center",
-        textfont=dict(family='Inter', size=14, color='#0F172A', weight='bold')
+        mode='markers+text', name='Dynamic Profile',
+        marker=dict(color='#10b981', size=24, symbol='star', line=dict(color='#ffffff', width=2)),
+        text=[f'{prob:.1f}% VIP'], textposition="top center",
+        textfont=dict(family='Outfit', size=16, color='#10b981', weight='bold')
     ))
 
     fig.update_layout(
-        plot_bgcolor="#F8FAFC", paper_bgcolor="#FFFFFF",
-        xaxis=dict(title="Purchase Frequency (#)", gridcolor="#E2E8F0"),
-        yaxis=dict(title="Historical Monetary Value ($)", gridcolor="#E2E8F0", type='log'),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=450
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(title="Purchasing Frequency", gridcolor="#334155", color="#f8fafc", title_font=dict(size=14)),
+        yaxis=dict(title="Historical Value ($)", gridcolor="#334155", type='log', color="#f8fafc", title_font=dict(size=14)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#f8fafc')),
+        height=550,
+        margin=dict(l=0, r=0, b=0, t=30)
     )
     st.plotly_chart(fig, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-st.divider()
-st.subheader("Business Impact Simulator: 'What-If' Retention Strategy")
-st.write("Calculate the projected impact of utilizing marketing to increase customer purchasing frequency on their likelihood to return.")
+st.markdown("<br>", unsafe_allow_html=True)
 
-col5, col6, col7 = st.columns([1, 1, 1], gap="medium")
+# --- LOWER SECTION ---
+st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+col5, col6, col7 = st.columns([1, 1, 1.2], gap="large")
+
 with col5:
-    extra_purchases = st.slider("Campaign Target: Extra Purchases Driven", min_value=1, max_value=15, value=2)
+    st.markdown("### What-If Loyalty Simulator")
+    st.write("Determine the exact uplift of inducing recurring transactions.")
+    extra_purchases = st.slider("Drive Additional Transactions", min_value=1, max_value=10, value=2)
 
 with col6:
     sim_data = input_data.copy()
-    sim_data['Frequency'] += extra_purchases
-    sim_df = pd.DataFrame([sim_data])
+    if 'Frequency' in sim_data:
+        sim_data['Frequency'] += extra_purchases
+    sim_df = pd.DataFrame([sim_data])[expected_features]
     new_prob = model.predict_proba(sim_df)[0][1] * 100
     prob_lift = new_prob - prob
     
-    st.metric(label="New Projected VIP Probability", value=f"{new_prob:.1f}%", delta=f"+{prob_lift:.1f}% Increase")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.metric(label="New Probability Trajectory", value=f"{new_prob:.1f}%", delta=f"{prob_lift:.1f}% Loyalty Lift")
 
 with col7:
-    st.markdown("**Strategic Recommendation**")
-    st.success(f"By inducing exactly {extra_purchases} more unique transactions through automated loyalty marketing, this customer's probability of becoming an outsized VIP increases by **{prob_lift:.1f}%**. Do not focus purely on massive single-cart checkout values; frequency builds predictive habit.")
+    st.markdown("### Strategic Execution")
+    st.write(f"By inducing **{extra_purchases}** sequential transactions using automated lifecycle marketing, the baseline probability of securing this user expands aggressively by `{prob_lift:.1f}%`. Frequency heavily overrides gross margins as the leading indicator of VIP loyalty.")
+st.markdown("</div>", unsafe_allow_html=True)
