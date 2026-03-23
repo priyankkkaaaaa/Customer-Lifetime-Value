@@ -91,23 +91,24 @@ streamlit run app.py
 ```
 
 ## Model Evaluation Metrics
-The modeling pipeline evaluated Linear Regression against non-linear tree-based approaches (Random Forest, XGBoost) for predicting continuous monetary value.
+The modeling pipeline evaluated Logistic Regression against tree-based classifiers (Random Forest, XGBoost) to predict rigorous, future window conversions (High-Value Customers vs Churned/Low-Value Customers).
 
-* **Linear Regression:** Selected as the optimal baseline model ($R^2$: 0.34, RMSE: 8199) due to its robustness against the extreme outliers inherent in the monetary spending dataset.
-* **Tree-based Models:** Random Forest and XGBoost failed to generalize to the test set ($R^2$: 0.00, RMSE: 10157-10608), over-fitting heavily on the training data.
+* **XGBoost (Tuned):** Selected as the optimal model after GridSearchCV hyperparameter tuning (`ROC-AUC: 0.91`, `Accuracy: 88%`, `Precision: 93%`). It successfully generalized to the holdout test set, masterfully handling class imbalances.
+* **Logistic Regression & Random Forest:** Served as robust baselines, but the gradient boosting mechanism natively handled the complex, non-linear RFM interactions better.
 
-The pipeline calculates the following key metrics on a holdout test set:
-* **R-Squared ($R^2$):** Proportion of the variance in the dependent variable that is predictable.
-* **RMSE (Root Mean Squared Error):** Standard deviation of the prediction errors. 
+The pipeline calculates the following key classification metrics on a holdout test set:
+* **ROC-AUC:** Area under the Receiver Operating Characteristic curve, representing the model's ability to seamlessly distinguish between High-Value returning clients and churned accounts.
+* **Precision & Recall:** Evaluates the ratio of true VIP classifications against false-positives and missed opportunities. 
 
 ## Strategic Business Insights & SHAP Explainability
-Leveraging regression coefficients and feature importance, the model provides interpretable insights into customer value drivers.
+Leveraging XGBoost architecture and rigorous SHAP (SHapley Additive exPlanations) values, the model provides interpretable insights into what drives a customer to return and generate massive future value.
 
 ### Segmentation Discoveries
-* **High-Value Concentration:** Successfully split the customer base of 4,338 unique clients, identifying an elite group of 26 extreme `High Value` customers generating massively outsized returns.
-* **Frequency Dominance:** `Frequency` (number of unique invoices) was found to be drastically more important than `Recency` in determining final monetary value.
+* **K-Means Clustering:** Successfully segmented the historical customer base into 3 distinct demographic tiers based on scaled RFM profiles (e.g., Platinum, Gold, Silver).
+* **Time-To-Conversion is Critical:** SHAP explainability revealed that the days between a user's first touchpoint and their conversion event natively dictated their likelihood to become a returning VIP.
+* **Frequency Dominance:** `Frequency` (number of unique transactions) remains a vastly stronger predictor of future High Value than purely massive single-ticket `MonetaryValue` drops.
 
 ### Strategic Recommendations
-* **Fund VIP Retention:** Dedicate specialized account management and premium loyalty incentives to the 26 extreme High-Value customers to protect the core revenue base.
-* **Optimize for Frequency:** Since purchasing frequency is the strongest driver of CLV, marketing campaigns should focus on encouraging repeat purchases (e.g., automated replenishment emails, loyalty points for multiple orders) rather than pushing single large-ticket transactions.
-* **Reframe Reactivation KPIs:** Target Medium and Low-value segments nearing churn with aggressive "win-back" campaigns, measuring success by the reactivation of their purchasing frequency.
+* **Target the Platinum Cluster:** Dedicate premium loyalty incentives to the K-Means 'Platinum' segment mapped by the algorithm to proactively combat churn in the top future revenue base.
+* **Optimize for Frequency:** Since purchasing frequency drives future CLV predictability, marketing campaigns should focus on encouraging repeat purchases (e.g., automated replenishment emails, loyalty points for multiple orders).
+* **Strict Predictive Triggers:** Utilize the XGBoost predictive probabilities to trigger automated "win-back" campaigns the exact moment a high-probability customer shows early warning signs of timeline churn.
