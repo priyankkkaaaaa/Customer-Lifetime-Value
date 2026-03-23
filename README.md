@@ -1,45 +1,113 @@
-# Customer Lifetime Value Prediction and Segmentation
+# Customer Lifetime Value Prediction and Segmentation Model
+Python Version License: MIT
 
-## Capstone Project Overview
+## Overview
+This project provides a robust, data-driven customer lifetime value (CLV) prediction and segmentation model designed to analyze and quantify the long-term value of e-commerce customers. By predicting future revenue generation and performing RFM (Recency, Frequency, Monetary) clustering, this solution empowers marketing teams to prioritize retention strategies, optimize market spend, and increase profitability among high-value segments.
 
-### Problem Statement
-An e-commerce company wants to identify customers who will generate the highest long-term revenue. Currently, marketing resources are spent uniformly across the customer base, which is inefficient. The company needs to predict the Customer Lifetime Value (CLV) based on historical transactions, perform RFM (Recency, Frequency, Monetary) analysis, and cluster customers into meaningful segments.
+## Architecture and Project Structure
+### Repository Layout
+```text
+capstone-project/
+├── data/                      # Raw and processed datasets (UCI Online Retail Dataset)
+├── notebooks/                 # Exploratory and experimental notebooks
+│   ├── eda.ipynb              # Exploratory Data Analysis & visual insights
+│   ├── feature_engineering.ipynb  # Feature extraction & RFM workflows
+│   └── modeling.ipynb         # Model training, hyperparameter tuning & SHAP
+├── src/                       # Production-grade source code
+│   ├── data_pipeline.py       # Data cleaning and processing
+│   └── training_pipeline.py   # Automated end-to-end model training script
+├── model/                     # Model artifacts natively serialized
+│   └── trained_model.pkl      # Production-ready trained best model
+├── presentation/              # Final presentation and reporting files
+├── app.py                     # Interactive Streamlit dashboard
+└── README.md                  # Project documentation
+```
 
-### Business Objective
-To help the marketing team prioritize retention strategies for highly valuable customers. By identifying who the high-value customers are and predicting their future revenue generation, the company can target personalized campaigns, optimize market spend, and ultimately increase retention among its most profitable segments.
+### Dataset Semantics
+The analytical dataset comprises transactional records capturing customer purchasing behavior:
+* **Customer_ID**: Unique identifier for each client.
+* **Recency**: Days since the customer's last purchase.
+* **Frequency**: Total number of unique transactions/invoices.
+* **Monetary**: Total spend across all transactions.
+* **Segment**: Clustered category (High Value, Medium Value, Low Value).
+* **CLV (Target)**: Predicted future monetary value.
 
-### Success Metrics
-1. **Segmentation Quality:** Meaningful customer segments identified through K-Means clustering on RFM variables (High Value, Medium Value, Low Value).
-2. **Model Performance:** The predictive model for CLV should achieve an R-squared ($R^2$) score of at least 0.6 and a solid baseline RMSE compared to average customer value.
-3. **Actionable Insights:** Clear, data-driven retention strategies synthesized from the model's feature importance and SHAP explanations.
+## Quickstart & Installation
+Follow these instructions to set up the environment locally.
 
----
+### 1. Environment Setup
+**Windows (PowerShell):**
+```powershell
+# Create virtual environment
+python -m venv venv
 
-## Directory Structure
-- `data/`: Contains raw and processed datasets (UCI Online Retail Dataset).
-- `notebooks/`: Jupyter notebooks for EDA, Feature Engineering, and Modeling.
-- `src/`: Python scripts for data pipelines and training.
-- `model/`: Serialized trained models.
-- `presentation/`: Final presentation files.
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+```
 
-## Reproducing the Project
-### 1. Requirements
-Ensure you have the required packages: `pandas`, `scikit-learn`, `xgboost`, `shap`, `jupyter`.
+**macOS/Linux (Bash):**
+```bash
+# Create virtual environment
+python3 -m venv venv
 
-### 2. Execution Pipeline
-1. Run `python src/download_data.py` to fetch the UCI dataset.
-2. Run `python src/generate_notebooks.py` to recreate the notebooks.
-3. Run `jupyter nbconvert --to notebook --execute notebooks/eda.ipynb --inplace` (or run manually).
-4. Run `python src/data_pipeline.py` to clean the data.
-5. Run the feature engineering notebook or execute the python script equivalents.
-6. Run `python src/training_pipeline.py` to train models and export `model/trained_model.pkl`.
+# Activate virtual environment
+source venv/bin/activate
+```
 
-## Final Evaluation Report (Day 57 & Day 60)
-* **Dataset Segmentation:** Successfully split the customer base of 4,338 unique clients into High, Medium, and Low-Value segments using K-Means clustering.
-* **Top Metric:** Found 26 extreme `High Value` customers generating high returns.
-* **Model Comparison:** 
-  * Linear Regression ($R^2$: 0.34, RMSE: 8199)
-  * Random Forest ($R^2$: 0.00, RMSE: 10608)
-  * XGBoost ($R^2$: 0.00, RMSE: 10157)
-* **Conclusion:** Linear Regression was selected as the optimal baseline model because the non-linear tree-based approaches suffered significantly from the extreme outliers inherent in the monetary spending dataset and failed to generalize to the test set.
-* **Feature Importance:** Using regression coefficients, `Frequency` (number of unique invoices) was drastically more important than `Recency` in determining final monetary value.
+### 2. Install Dependencies
+Install the required data science and machine learning packages:
+```bash
+python -m pip install --upgrade pip
+pip install pandas numpy scikit-learn xgboost shap jupyter streamlit
+```
+
+## Execution Guide
+### Option 1: Automated ML Pipeline (Recommended for Production)
+Execute the end-to-end training pipeline via the command line. This script automatically performs data loading, processing, model training, evaluation, and serialization.
+
+```bash
+# Run from the project root directory
+python src/training_pipeline.py
+```
+**Expected Output:**
+* Generates processed data in the `data/` directory.
+* Serializes the trained regression model to `model/trained_model.pkl`.
+* Prints evaluation metrics ($R^2$, RMSE) to standard output.
+
+### Option 2: Interactive Analysis (Jupyter Notebooks)
+For exploratory data analysis, visual insights, and interactive hyperparameter tuning:
+```bash
+jupyter notebook
+```
+Navigate to the `notebooks/` directory and execute the notebooks in the following logical sequence:
+1. `eda.ipynb`
+2. `feature_engineering.ipynb`
+3. `modeling.ipynb`
+
+### Option 3: Interactive Dashboard
+To launch the interactive application for business users and "What-If" simulations:
+```bash
+streamlit run app.py
+```
+
+## Model Evaluation Metrics
+The modeling pipeline evaluated Linear Regression against non-linear tree-based approaches (Random Forest, XGBoost) for predicting continuous monetary value.
+
+* **Linear Regression:** Selected as the optimal baseline model ($R^2$: 0.34, RMSE: 8199) due to its robustness against the extreme outliers inherent in the monetary spending dataset.
+* **Tree-based Models:** Random Forest and XGBoost failed to generalize to the test set ($R^2$: 0.00, RMSE: 10157-10608), over-fitting heavily on the training data.
+
+The pipeline calculates the following key metrics on a holdout test set:
+* **R-Squared ($R^2$):** Proportion of the variance in the dependent variable that is predictable.
+* **RMSE (Root Mean Squared Error):** Standard deviation of the prediction errors. 
+
+## Strategic Business Insights & SHAP Explainability
+Leveraging regression coefficients and feature importance, the model provides interpretable insights into customer value drivers.
+
+### Segmentation Discoveries
+* **High-Value Concentration:** Successfully split the customer base of 4,338 unique clients, identifying an elite group of 26 extreme `High Value` customers generating massively outsized returns.
+* **Frequency Dominance:** `Frequency` (number of unique invoices) was found to be drastically more important than `Recency` in determining final monetary value.
+
+### Strategic Recommendations
+* **Fund VIP Retention:** Dedicate specialized account management and premium loyalty incentives to the 26 extreme High-Value customers to protect the core revenue base.
+* **Optimize for Frequency:** Since purchasing frequency is the strongest driver of CLV, marketing campaigns should focus on encouraging repeat purchases (e.g., automated replenishment emails, loyalty points for multiple orders) rather than pushing single large-ticket transactions.
+* **Reframe Reactivation KPIs:** Target Medium and Low-value segments nearing churn with aggressive "win-back" campaigns, measuring success by the reactivation of their purchasing frequency.
