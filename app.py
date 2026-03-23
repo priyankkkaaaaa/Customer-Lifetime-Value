@@ -4,15 +4,13 @@ import numpy as np
 import joblib
 import os
 import plotly.graph_objects as go
-import warnings
-warnings.filterwarnings('ignore')
 
-st.set_page_config(page_title="VIP Predictor", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Customer Lifetime Value Predictor", layout="wide", initial_sidebar_state="collapsed")
 
-# --- PREMIUM CSS STYLING ---
+# --- ULTRA PREMIUM & MASSIVE CSS STYLING ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Outfit', sans-serif !important;
@@ -23,54 +21,66 @@ st.markdown("""
         color: #f8fafc;
     }
     
-    h1, h2, h3, h4, h5, h6 {
-        color: #f8fafc !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.5px;
+    /* Massive Fonts for Non-Tech Readability */
+    p, li, span, label, div.stMarkdown, div.stText, h4 {
+        font-size: 1.35rem !important; 
+        line-height: 1.8;
     }
     
+    h1 {
+        font-size: 3.8rem !important;
+        font-weight: 800 !important;
+        background: -webkit-linear-gradient(45deg, #60a5fa, #34d399);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        margin-bottom: 0px !important;
+    }
+    
+    h2 { font-size: 2.8rem !important; font-weight: 800 !important; color: #f8fafc; }
+    h3 { font-size: 2.2rem !important; color: #f8fafc !important; font-weight: 700 !important; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 15px;}
+    
+    /* Interactive Sliders */
     .stSlider > div > div > div > div {
-        background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%) !important;
+        background: linear-gradient(90deg, #32cd32 0%, #00fa9a 100%) !important;
+        height: 16px !important;
     }
-    
-    /* Glassmorphism Cards */
+    .stSlider > div > div > div > div > div {
+        width: 32px !important;
+        height: 32px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 0 20px rgba(52, 211, 153, 0.9) !important;
+    }
+
+    /* Glassmorphism Containers */
     .glass-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        border-radius: 24px;
+        padding: 40px;
+        margin-bottom: 40px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .glass-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 40px rgba(59, 130, 246, 0.2);
-    }
     
-    /* Metric styling */
     [data-testid="stMetricValue"] {
         background: -webkit-linear-gradient(45deg, #60a5fa, #34d399);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 3.5rem !important;
+        font-size: 4.5rem !important;
         font-weight: 800 !important;
     }
     [data-testid="stMetricLabel"] {
-        color: #94a3b8 !important;
-        font-size: 1.1rem !important;
-        font-weight: 500 !important;
+        color: #cbd5e1 !important;
+        font-size: 1.6rem !important;
+        font-weight: 700 !important;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 2px;
     }
     
-    hr {
-        border-color: rgba(255,255,255,0.1) !important;
-    }
-    
-    .stMarkdown { color: #cbd5e1; }
-    
+    hr { border-color: rgba(255,255,255,0.15) !important; margin: 40px 0; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
@@ -95,115 +105,118 @@ def load_ml_model():
 df = load_data()
 model = load_ml_model()
 
-# --- HEADER ---
-st.markdown("<h1 style='text-align: center; font-size: 3rem; margin-bottom: 0;'>Predictive VIP Retention Engine</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 1.2rem; margin-top: 5px; margin-bottom: 40px;'>Empowered by Advanced XGBoost & K-Means Clustering to forecast lifetime value.</p>", unsafe_allow_html=True)
+# --- HEADER TITLE MATCHING REQUEST ---
+st.markdown("<h1>Customer Lifetime Value Prediction and Segmentation Model</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 1.8rem !important; margin-top: 15px; margin-bottom: 60px;'>A non-technical, AI-powered interactive dashboard to simulate, visualize, and maximize customer loyalty.</p>", unsafe_allow_html=True)
 
 if df is None or model is None:
     st.error("System dependencies not found. Please assure notebooks have generated processed_data.csv and trained_model.pkl.")
     st.stop()
 
-# --- SAFETY: Extract True Expected Features from XGBoost ---
-# XGBoost natively stores expected feature names. We use this to prevent any shape/key mismatches!
 expected_features = model.get_booster().feature_names
 
 # Layout: 2 Columns
-col1, col2 = st.columns([1.2, 2], gap="large")
+col1, col2 = st.columns([1, 1], gap="large")
 
 with col1:
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-    st.markdown("### Profile Configuration")
+    st.markdown("### 🛠️ Step 1: Interactive Customer Simulator")
+    st.write("Drag the sliders below to build a hypothetical customer profile. The Artificial Intelligence will instantly calculate their future value.")
     
-    input_recency = st.slider("Recency (Days Since Last Purchase)", min_value=1, max_value=360, value=30)
-    input_frequency = st.slider("Frequency (Total Unique Purchases)", min_value=1, max_value=150, value=5)
-    
-    # We display Monetary Value for UX, but we won't feed it to the model if it was dropped during training!
-    input_monetary = st.slider("Historical Value ($)", min_value=10, max_value=10000, value=500)
-    input_conv_days = st.slider("Time to Initial Conversion (Days)", min_value=0, max_value=365, value=10)
+    st.markdown("<br>", unsafe_allow_html=True)
+    input_recency = st.slider("Recency (Days Since Their Last Purchase)", min_value=1, max_value=360, value=30, help="Lower is better. Shows recent engagement.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    input_frequency = st.slider("Frequency (Total Number of Past Purchases)", min_value=1, max_value=150, value=5, help="Higher is better. Shows extreme loyalty.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    input_monetary = st.slider("Historical Spend ($ Total Money Spent)", min_value=10, max_value=10000, value=500, help="Total money they gave you in the past.")
+    st.markdown("<br>", unsafe_allow_html=True)
+    input_conv_days = st.slider("Time to Conversion (Days before first purchase)", min_value=0, max_value=365, value=10, help="How quickly they bought their first item.")
     
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # Build dictionary matching exactly what the model expects
+    # Build strict dictionary 
     input_data = {col: 0 for col in expected_features}
-    
     if 'Recency' in input_data: input_data['Recency'] = input_recency
     if 'Frequency' in input_data: input_data['Frequency'] = input_frequency
     if 'MonetaryValue' in input_data: input_data['MonetaryValue'] = input_monetary
     if 'time_to_conversion_days' in input_data: input_data['time_to_conversion_days'] = input_conv_days
-    if 'Segment' in input_data: input_data['Segment'] = 2 # Best demographic
+    if 'Segment' in input_data: input_data['Segment'] = 2 
     
-    input_df = pd.DataFrame([input_data])[expected_features] # Extremely strict column lock
+    input_df = pd.DataFrame([input_data])[expected_features] 
     
     prob = model.predict_proba(input_df)[0][1] * 100
-    prediction_label = "Premium VIP" if prob > 50 else "High Churn Risk"
-    
-    st.markdown("<br><div class='glass-card'>", unsafe_allow_html=True)
-    st.metric(label="VIP Conversion Probability", value=f"{prob:.1f}%")
-    st.markdown(f"<h4 style='color: {'#34d399' if prob>50 else '#f87171'};'>Target Classified As: {prediction_label}</h4>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    prediction_label = "PREMIUM VIP LOYALTY" if prob > 50 else "HIGH CHURN RISK"
+    color = "#10b981" if prob > 50 else "#f43f5e"
 
 with col2:
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-    st.markdown("### Dynamic Algorithmic Positioning")
+    st.markdown("### 🎯 Step 2: Artificial Intelligence Verdict")
+    st.write("This interactive gauge shows the exact percentage chance that this user will return to spend highly.")
     
-    fig = go.Figure()
-
-    # Base scatter data - Dark premium theme
-    fig.add_trace(go.Scatter(
-        x=df[df['converted']==0]['Frequency'], y=df[df['converted']==0]['MonetaryValue'],
-        mode='markers', name='Churned Demographics',
-        marker=dict(color='#475569', size=5, opacity=0.3), hoverinfo='none'
+    st.markdown("<br>", unsafe_allow_html=True)
+    # Highly Interactive Non-Tech Gauge Chart
+    fig_gauge = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = prob,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "Confidence Score (%)", 'font': {'size': 26, 'color': '#f8fafc', 'family': 'Outfit'}},
+        number = {'suffix': "%", 'font': {'size': 80, 'color': color, 'family': 'Outfit', 'weight': 'bold'}},
+        gauge = {
+            'axis': {'range': [None, 100], 'tickwidth': 3, 'tickcolor': "white", 'tickfont': {'size': 18}},
+            'bar': {'color': color, 'thickness': 0.8},
+            'bgcolor': "rgba(255,255,255,0.05)",
+            'borderwidth': 0,
+            'steps': [
+                {'range': [0, 50], 'color': 'rgba(244, 63, 94, 0.2)'},
+                {'range': [50, 100], 'color': 'rgba(16, 185, 129, 0.2)'}],
+            'threshold': {
+                'line': {'color': "#ffffff", 'width': 8},
+                'thickness': 1,
+                'value': prob}
+        }
     ))
-    fig.add_trace(go.Scatter(
-        x=df[df['converted']==1]['Frequency'], y=df[df['converted']==1]['MonetaryValue'],
-        mode='markers', name='Actual VIP Demographic',
-        marker=dict(color='#3b82f6', size=7, opacity=0.7), hoverinfo='none'
-    ))
-
-    # Pulsing simulation dot
-    fig.add_trace(go.Scatter(
-        x=[input_frequency], y=[input_monetary],
-        mode='markers+text', name='Dynamic Profile',
-        marker=dict(color='#10b981', size=24, symbol='star', line=dict(color='#ffffff', width=2)),
-        text=[f'{prob:.1f}% VIP'], textposition="top center",
-        textfont=dict(family='Outfit', size=16, color='#10b981', weight='bold')
-    ))
-
-    fig.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(title="Purchasing Frequency", gridcolor="#334155", color="#f8fafc", title_font=dict(size=14)),
-        yaxis=dict(title="Historical Value ($)", gridcolor="#334155", type='log', color="#f8fafc", title_font=dict(size=14)),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#f8fafc')),
-        height=550,
-        margin=dict(l=0, r=0, b=0, t=30)
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    fig_gauge.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "#f8fafc", 'family': "Outfit"}, height=450, margin=dict(l=40, r=40, t=50, b=40))
+    st.plotly_chart(fig_gauge, use_container_width=True)
+    
+    st.markdown(f"<div style='text-align: center; border: 3px solid {color}; border-radius: 12px; padding: 20px; background-color: rgba(255,255,255,0.03);'><span style='font-size: 1.5rem; color: #cbd5e1; text-transform: uppercase;'>Machine Learning Assignment:</span><br><br><span style='font-size: 3rem; font-weight: 800; letter-spacing: 2px; color: {color};'>{prediction_label}</span></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
 
 # --- LOWER SECTION ---
 st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-col5, col6, col7 = st.columns([1, 1, 1.2], gap="large")
+st.markdown("### 📈 Step 3: Visualizing the Demographics Base")
+st.write("See exactly where your simulated user falls relative to your entire historical customer database. You can zoom, pan, and hover over individual dots to explore the raw data interactively.")
 
-with col5:
-    st.markdown("### What-If Loyalty Simulator")
-    st.write("Determine the exact uplift of inducing recurring transactions.")
-    extra_purchases = st.slider("Drive Additional Transactions", min_value=1, max_value=10, value=2)
+fig = go.Figure()
+# Churned Data
+fig.add_trace(go.Scatter(
+    x=df[df['converted']==0]['Frequency'], y=df[df['converted']==0]['MonetaryValue'],
+    mode='markers', name='Lost Customers (Churned)',
+    marker=dict(color='#cbd5e1', size=10, opacity=0.4), hovertemplate='Their Frequency: %{x}<br>Their Spend: $%{y}<extra></extra>'
+))
+# VIP Data
+fig.add_trace(go.Scatter(
+    x=df[df['converted']==1]['Frequency'], y=df[df['converted']==1]['MonetaryValue'],
+    mode='markers', name='Loyal High-Value VIPs',
+    marker=dict(color='#3b82f6', size=12, opacity=0.8), hovertemplate='Their Frequency: %{x}<br>Their Spend: $%{y}<extra></extra>'
+))
+# Pulsing simulation dot
+fig.add_trace(go.Scatter(
+    x=[input_frequency], y=[input_monetary],
+    mode='markers+text', name='🔥 YOUR SIMULATION',
+    marker=dict(color='#10b981', size=45, symbol='star', line=dict(color='#ffffff', width=4)),
+    text=['⬇️ YOU ARE HERE'], textposition="top center",
+    textfont=dict(family='Outfit', size=26, color='#10b981', weight='800')
+))
 
-with col6:
-    sim_data = input_data.copy()
-    if 'Frequency' in sim_data:
-        sim_data['Frequency'] += extra_purchases
-    sim_df = pd.DataFrame([sim_data])[expected_features]
-    new_prob = model.predict_proba(sim_df)[0][1] * 100
-    prob_lift = new_prob - prob
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.metric(label="New Probability Trajectory", value=f"{new_prob:.1f}%", delta=f"{prob_lift:.1f}% Loyalty Lift")
-
-with col7:
-    st.markdown("### Strategic Execution")
-    st.write(f"By inducing **{extra_purchases}** sequential transactions using automated lifecycle marketing, the baseline probability of securing this user expands aggressively by `{prob_lift:.1f}%`. Frequency heavily overrides gross margins as the leading indicator of VIP loyalty.")
+fig.update_layout(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    xaxis=dict(title="Loyalty (Total Purchases Made)", gridcolor="rgba(255,255,255,0.1)", color="#f8fafc", title_font=dict(size=22, weight='bold'), tickfont=dict(size=18)),
+    yaxis=dict(title="Historical Value ($ Spent)", gridcolor="rgba(255,255,255,0.1)", type='log', color="#f8fafc", title_font=dict(size=22, weight='bold'), tickfont=dict(size=18)),
+    legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1, font=dict(color='#f8fafc', size=18, weight='bold')),
+    height=750,
+    margin=dict(l=0, r=0, b=0, t=50),
+    hovermode="closest"
+)
+st.plotly_chart(fig, use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
