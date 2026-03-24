@@ -93,7 +93,7 @@ streamlit run app.py
 ## Model Evaluation Metrics
 The modeling pipeline evaluated Logistic Regression against tree-based classifiers (Random Forest, XGBoost) to predict rigorous, future window conversions (High-Value Customers vs Churned/Low-Value Customers).
 
-* **XGBoost (Tuned):** Selected as the optimal model after GridSearchCV hyperparameter tuning (`ROC-AUC: 0.91`, `Accuracy: 88%`, `Precision: 93%`). It successfully generalized to the holdout test set, masterfully handling class imbalances.
+* **XGBoost (Tuned):** Selected as the optimal model after GridSearchCV hyperparameter tuning (`ROC-AUC: ~0.73`, `Accuracy: ~67%`, `Precision: ~68%`). It successfully generalized to the holdout test set, masterfully handling class imbalances.
 * **Logistic Regression & Random Forest:** Served as robust baselines, but the gradient boosting mechanism natively handled the complex, non-linear RFM interactions better.
 
 The pipeline calculates the following key classification metrics on a holdout test set:
