@@ -19,7 +19,7 @@ capstone-project/
 ├── model/                     # Model artifacts natively serialized
 │   └── trained_model.pkl      # Production-ready trained best model
 ├── presentation/              # Final presentation and reporting files
-├── app.py                     # Interactive Streamlit dashboard
+├── app1.py                    # Interactive Streamlit dashboard
 └── README.md                  # Project documentation
 ```
 
