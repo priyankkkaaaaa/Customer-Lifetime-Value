@@ -8,19 +8,19 @@ This project provides a robust, data-driven customer lifetime value (CLV) predic
 ### Repository Layout
 ```text
 capstone-project/
-├── data/                      # Raw and processed datasets (UCI Online Retail Dataset)
-├── notebooks/                 # Exploratory and experimental notebooks
-│   ├── eda.ipynb              # Exploratory Data Analysis & visual insights
-│   ├── feature_engineering.ipynb  # Feature extraction & RFM workflows
-│   └── modeling.ipynb         # Model training, hyperparameter tuning & SHAP
+├── data/                      # Raw and processed datasets
+├── notebooks/                 # Iterative experimental notebooks
+│   ├── eda.ipynb              # Exploratory insights
+│   ├── feature_engineering.ipynb  # RFM & high-res features
+│   └── modeling.ipynb         # Stacking ensemble benchmarks
 ├── src/                       # Production-grade source code
-│   ├── data_pipeline.py       # Data cleaning and processing
-│   └── training_pipeline.py   # Automated end-to-end model training script
-├── model/                     # Model artifacts natively serialized
-│   └── trained_model.pkl      # Production-ready trained best model
-├── presentation/              # Final presentation and reporting files
-├── app1.py                    # Interactive Streamlit dashboard
-└── README.md                  # Project documentation
+│   ├── data_pipeline.py       # Data cleaning and handling
+│   ├── ensemble_training.py   # Stacking & stacking weight tuning
+│   └── training_pipeline.py   # Mission-critical training pipeline
+├── model/                     # Serialized model artifacts
+│   └── mission_critical_bundle.pkl # 95.9% Precision production bundle
+├── app1.py                    # Executive Intelligence Dashboard
+└── README.md                  # Comprehensive project documentation
 ```
 
 ### Dataset Semantics
