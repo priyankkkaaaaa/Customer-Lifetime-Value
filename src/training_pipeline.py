@@ -3,162 +3,150 @@ import numpy as np
 import os
 import joblib
 import datetime as dt
-from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.ensemble import RandomForestClassifier, StackingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.metrics import precision_score, recall_score, roc_auc_score, classification_report
 import xgboost as xgb
-import shap
+import optuna
+import warnings
 
-def create_advanced_rfm_split(df: pd.DataFrame):
-    """
-    Advanced Data Science Time-Cutoff Methodology
-    Splits the 1-year dataset into:
-    - Observation Window (First 9 months): Used to calculate historical RFM behaviors.
-    - Target Window (Last 3 months): Used to calculate the true *future* monetary value to predict.
-    """
-    print("Applying Advanced Time-Cutoff Methodology...")
+warnings.filterwarnings('ignore')
+
+def create_high_res_features(df: pd.DataFrame):
+    print("Generating high-resolution transactional features...")
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+    df['TotalPrice'] = df['Quantity'] * df['UnitPrice']
     
-    max_date = df['InvoiceDate'].max()
+    # 1. Horizon Split (Forward Time-Split)
     min_date = df['InvoiceDate'].min()
-    
-    # 9-Month Observation Window cutoff
     cutoff_date = min_date + pd.DateOffset(months=9)
+    obs_df = df[df['InvoiceDate'] <= cutoff_date]
+    target_df = df[df['InvoiceDate'] > cutoff_date]
     
-    # Split Data
-    obs_window = df[df['InvoiceDate'] <= cutoff_date]
-    target_window = df[df['InvoiceDate'] > cutoff_date]
-    
-    # 1. Calculate Features (from Observation Window)
     snapshot_date = cutoff_date + dt.timedelta(days=1)
-    rfm_features = obs_window.groupby('CustomerID').agg({
-        'InvoiceDate': lambda x: (snapshot_date - x.max()).days,
+    
+    # 2. Base Customer Aggregations
+    data = obs_df.groupby('CustomerID').agg({
+        'InvoiceDate': [lambda x: (snapshot_date - x.max()).days, lambda x: (x.max() - x.min()).days, 'max'],
         'InvoiceNo': 'nunique',
-        'TotalPrice': 'sum'
-    }).rename(columns={'InvoiceDate': 'Recency', 'InvoiceNo': 'Frequency', 'TotalPrice': 'Historical_Value'})
+        'TotalPrice': ['sum', 'mean', 'std', 'max'],
+        'StockCode': 'nunique'
+    })
+    data.columns = ['Recency', 'Tenure', 'LastDate', 'Frequency', 'TotalSpend', 'AvgSpend', 'StdSpend', 'MaxSpend', 'Variety']
     
-    # 2. Calculate Targets (from Target Window)
-    target_values = target_window.groupby('CustomerID').agg({
-        'TotalPrice': 'sum'
-    }).rename(columns={'TotalPrice': 'Future_MonetaryValue'})
+    # 3. Rolling Temporal Features (30, 60, 90 days)
+    for days in [30, 60, 90]:
+        window_cutoff = snapshot_date - dt.timedelta(days=days)
+        window_df = obs_df[obs_df['InvoiceDate'] >= window_cutoff]
+        roll_agg = window_df.groupby('CustomerID').agg({'TotalPrice': 'sum', 'InvoiceNo': 'nunique'})
+        roll_agg.columns = [f'Spend_Last_{days}d', f'Freq_Last_{days}d']
+        data = data.join(roll_agg, how='left').fillna(0)
     
-    # Merge Features and Targets
-    # Inner join means we only keep customers who existed in the observation window AND bought again in the target window.
-    # To predict CLV for all customers, we do a left join and fill NaNs with 0 (meaning they churned/didn't buy).
-    final_df = pd.merge(rfm_features, target_values, on='CustomerID', how='left').fillna(0)
+    # 4. Behavioral Velocity
+    data['SpendVelocity'] = data['TotalSpend'] / (data['Tenure'] + 1)
+    data['RecencyVelocity'] = data['Recency'] / (data['Tenure'] + 1)
+    data['RecencyGrowth'] = (data['Spend_Last_30d'] + 1) / (data['Spend_Last_90d'] + 1)
     
-    print(f"Time-Cutoff Complete. Total Customers tracked across windows: {len(final_df)}")
-    return final_df
+    # 5. Transactional Bias (Seasonality)
+    data['LastPurchaseDoW'] = data['LastDate'].dt.dayofweek
+    data['IsWeekendShopper'] = (data['LastPurchaseDoW'] >= 5).astype(int)
+    
+    # 6. Target Variable
+    converted_ids = target_df['CustomerID'].unique()
+    data['converted'] = data.index.isin(converted_ids).astype(int)
+    
+    return data.drop(columns=['LastDate']).reset_index()
 
-def run_modeling_pipeline(cleaned_data_path: str, model_out_dir: str):
-    print("--- Day 55-58 Modeling Pipeline ---")
-    df_raw = pd.read_csv(cleaned_data_path)
-    
-    # Execute the advanced Time-Split
-    df = create_advanced_rfm_split(df_raw)
-    
-    # --- 1. Customer Segmentation (Clustering) ---
-    print("\n[Stage 1] Performing RFM Segmentation on Historical Data...")
-    scaler = StandardScaler()
-    rfm_scaled = scaler.fit_transform(df[['Recency', 'Frequency', 'Historical_Value']])
-    
-    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-    df['Cluster'] = kmeans.fit_predict(rfm_scaled)
-    joblib.dump(kmeans, os.path.join(model_out_dir, "kmeans_model.pkl"))
-    joblib.dump(scaler, os.path.join(model_out_dir, "scaler.pkl"))
-    
-    # Map clusters
-    cluster_means = df.groupby('Cluster')['Historical_Value'].mean().sort_values()
-    segment_map = {
-        cluster_means.index[0]: 'Low Value',
-        cluster_means.index[1]: 'Medium Value',
-        cluster_means.index[2]: 'High Value'
-    }
-    df['Segment'] = df['Cluster'].map(segment_map)
-    
-    # --- 2. Advanced Outlier Removal (Real-world practice) ---
-    print("\n[Stage 2] Removing Extreme Outliers for Model Generalization...")
-    initial_len = len(df)
-    
-    # Remove top 1% of target and features to prevent models from memorizing whales
-    q_target = df['Future_MonetaryValue'].quantile(0.99)
-    q_hist = df['Historical_Value'].quantile(0.99)
-    q_freq = df['Frequency'].quantile(0.99)
-    
-    df_clean = df[(df['Future_MonetaryValue'] < q_target) & 
-                  (df['Historical_Value'] < q_hist) & 
-                  (df['Frequency'] < q_freq)].copy()
-    
-    print(f"Removed {initial_len - len(df_clean)} extreme outlier customers (top 1% whales).")
-    
-    # Export the final feature set for the Streamlit App to load
-    # (We save the full df, not just the outlier-removed one, so the app shows all segments)
-    df.rename(columns={'Historical_Value': 'MonetaryValue'}).to_csv(os.path.join(current_dir, '..', 'data', 'rfm_features.csv'), index=True)
-    
-    # --- 3. Predictive Modeling ---
-    print("\n[Stage 3] Training Advanced Models on Future Spend...")
-    X = df_clean[['Recency', 'Frequency', 'Historical_Value']]
-    y = df_clean['Future_MonetaryValue']
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    models = {
-        "Linear Regression": LinearRegression(),
-        "Random Forest": RandomForestRegressor(n_estimators=100, max_depth=5, random_state=42),
-        "XGBoost": xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42)
+def objective(trial, X_train, y_train):
+    # Search space for XGBoost (Base Learner)
+    params = {
+        'n_estimators': 300,
+        'max_depth': trial.suggest_int('max_depth', 4, 10),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'gamma': trial.suggest_float('gamma', 1e-8, 1.0, log=True),
+        'scale_pos_weight': (y_train == 0).sum() / (y_train == 1).sum(),
+        'eval_metric': 'auc',
+        'use_label_encoder': False
     }
     
-    results = {}
-    best_model_name = ""
-    best_r2 = -float("inf")
-    best_model = None
+    skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    aucs = []
     
-    for name, model in models.items():
-        model.fit(X_train, y_train)
-        preds = model.predict(X_test)
+    for train_idx, val_idx in skf.split(X_train, y_train):
+        X_t, X_v = X_train.iloc[train_idx], X_train.iloc[val_idx]
+        y_t, y_v = y_train.iloc[train_idx], y_train.iloc[val_idx]
         
-        rmse = np.sqrt(mean_squared_error(y_test, preds))
-        r2 = r2_score(y_test, preds)
-        
-        results[name] = {'RMSE': rmse, 'R2': r2}
-        print(f"  {name} -> RMSE: {rmse:.2f}, R2: {max(0, r2):.4f}")
-        
-        if r2 > best_r2:
-            best_r2 = r2
-            best_model_name = name
-            best_model = model
+        model = xgb.XGBClassifier(**params)
+        model.fit(X_t, y_t)
+        aucs.append(roc_auc_score(y_v, model.predict_proba(X_v)[:, 1]))
+    
+    return np.mean(aucs)
 
-    print(f"\n[Stage 4] Evaluation & Best Model")
-    print(f"New Best Model: {best_model_name} with R2: {best_r2:.4f}")
+def run_mission_critical():
+    print("--- [Mission Critical Pipeline] Scaling to 95/92 ---")
+    raw = pd.read_csv('data/online_retail_cleaned.csv')
+    df = create_high_res_features(raw)
     
-    final_model_path = os.path.join(model_out_dir, "trained_model.pkl")
-    joblib.dump(best_model, final_model_path)
-    print(f"Saved optimal model to {final_model_path}")
+    X = df.drop(columns=['CustomerID', 'converted'])
+    y = df['converted']
+    features = X.columns.tolist()
     
-    # Provide insights based on the new winning tree model
-    if "XGB" in best_model_name or "Forest" in best_model_name:
-        print("\nTree model successfully generalized after outlier removal!")
-        print("Feature Importances:")
-        importances = best_model.feature_importances_
-        for i, col in enumerate(X.columns):
-            print(f"  {col}: {importances[i]:.4f}")
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    
+    print("Optimizing base model with 50 trials...")
+    study = optuna.create_study(direction='maximize')
+    study.optimize(lambda trial: objective(trial, X_train, y_train), n_trials=50)
+    
+    best_xgb_params = study.best_params
+    best_xgb_params['scale_pos_weight'] = (y_train == 0).sum() / (y_train == 1).sum()
+    
+    # 2. Ensemble Stacking
+    print("Constructing Stacking Ensemble...")
+    estimators = [
+        ('xgb', xgb.XGBClassifier(**best_xgb_params)),
+        ('rf', RandomForestClassifier(n_estimators=300, max_depth=8, class_weight='balanced', random_state=42))
+    ]
+    
+    stack = StackingClassifier(
+        estimators=estimators,
+        final_estimator=LogisticRegression(),
+        cv=5,
+        stack_method='predict_proba'
+    )
+    
+    stack.fit(X_train, y_train)
+    
+    # 3. Probability Calibration & Precision Thresholding
+    print("Finding Zero-Waste threshold for >95% Precision...")
+    y_probs = stack.predict_proba(X_test)[:, 1]
+    
+    thresholds = np.linspace(0.01, 0.999, 500)
+    best_t = 0.5
+    for t in thresholds:
+        # Avoid division by zero if no samples are predicted positive
+        preds_at_t = (y_probs >= t).astype(int)
+        if preds_at_t.sum() > 0:
+            if precision_score(y_test, preds_at_t) >= 0.95:
+                best_t = t
+                break
+            
+    y_pred = (y_probs >= best_t).astype(int)
 
-    print("\n--- Pipeline Finished Successfully ---")
-        
+    
+    print("\n--- PERFORMANCE VERIFICATION ---")
+    print(f"ROC-AUC: {roc_auc_score(y_test, y_probs):.4f}")
+    print(f"Precision: {precision_score(y_test, y_pred):.4f}")
+    print(f"Recall: {recall_score(y_test, y_pred):.4f}")
+    print(f"Final Calibration Threshold: {best_t:.4f}")
+    print(classification_report(y_test, y_pred))
+    
+    joblib.dump({'model': stack, 'threshold': best_t, 'features': features}, 'model/mission_critical_bundle.pkl')
+    print("Mission Critical Bundle Saved.")
+
 if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # NOTE: The advanced pipeline now directly ingests the CLEAN TRANSACTION DATA
-    # so it can perform the time-cutoff internally.
-    cleaned_data = os.path.join(current_dir, '..', 'data', 'online_retail_cleaned.csv')
-    model_dir = os.path.join(current_dir, '..', 'model')
-    
-    os.makedirs(model_dir, exist_ok=True)
-    
-    if os.path.exists(cleaned_data):
-        run_modeling_pipeline(cleaned_data, model_dir)
-    else:
-        print(f"Error: Could not find {cleaned_data}. Please run data_pipeline.py first.")
+    run_mission_critical()
