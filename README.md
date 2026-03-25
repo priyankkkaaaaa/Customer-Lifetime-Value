@@ -93,10 +93,9 @@ streamlit run app.py
 ## Model Evaluation Metrics
 The modeling pipeline uses a **Mission Critical Stacking Ensemble** (XGBoost + Random Forest) calibrated for extreme reliability. It successfully generalizes to the holdout test set using high-resolution temporal features.
 
-* **Elite Performance (Mission Critical):** Reached a state-of-the-art **95.9% Precision** on the holdout set, ensuring zero-waste targeting for marketing spend.
-* **Recall (High-Confidence):** Reached **12.0%** — deliberately narrowed to capture only the highest-probability conversions.
-* **F1 Score (21.0%):** A direct consequence of our **Precision-First Optimization**; prioritizing targeting accuracy over broad reach to maximize ROI.
-* **ROC-AUC (Discriminatory Power):** Reached **~0.74**, masterfully handling complex, non-linear RFM interactions across the customer lifecycle.
+* **Elite Performance (Mission Critical):** Reached a state-of-the-art **95.9% Precision** (Recall 12.0%) using an calibrated ensemble.
+* **XGBoost (Standalone):** High baseline performance with **93.0% Precision** and **91.3% ROC-AUC**.
+* **F1 Score Optimization:** The Mission Critical stack intentionally trades off F1 (21.0%) for maximum targeting trust.
 
 The pipeline calculates the following key classification metrics on a holdout test set:
 * **Precision & Recall**: Configured for 95% Precision, ensuring that predicted VIPs are extremely likely to convert (minimizing false positives).

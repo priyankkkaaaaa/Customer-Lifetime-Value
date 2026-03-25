@@ -976,12 +976,12 @@ elif "Model" in page_key:
 
     # ── Model comparison table ─────────────────────────────────────────────
     model_results = {
-        "Model":           ["Logistic Regression", "Random Forest", "Mission Critical Stack ◈"],
-        "ROC-AUC":         [0.812, 0.881, 0.737],
-        "Accuracy":        [0.791, 0.851, 0.480],
-        "Precision":       [0.783, 0.874, 0.959],
-        "Recall":          [0.744, 0.821, 0.120],
-        "F1 Score":        [0.763, 0.847, 0.210],
+        "Model":           ["Logistic Regression", "Random Forest", "XGBoost (Standalone)", "Mission Critical Stack ◈"],
+        "ROC-AUC":         [0.812, 0.881, 0.913, 0.737],
+        "Accuracy":        [0.791, 0.851, 0.880, 0.480],
+        "Precision":       [0.783, 0.874, 0.930, 0.959],
+        "Recall":          [0.744, 0.821, 0.856, 0.120],
+        "F1 Score":        [0.763, 0.847, 0.892, 0.210],
     }
     mr = pd.DataFrame(model_results)
 
@@ -993,7 +993,7 @@ elif "Model" in page_key:
 
     metrics = ["ROC-AUC","Accuracy","Precision","Recall","F1 Score"]
     fig_bar2 = go.Figure()
-    model_colors = [C_TEAL, C_AMBER, C_PURPLE]
+    model_colors = [C_TEAL, C_AMBER, C_BLUE, C_PURPLE]
     for i, (row, clr) in enumerate(zip(mr.to_dict("records"), model_colors)):
         vals = [row[m] for m in metrics]
         fig_bar2.add_trace(go.Bar(
@@ -1022,7 +1022,8 @@ elif "Model" in page_key:
         fig_roc = go.Figure()
         roc_data = [("Logistic Regression", 0.812, C_TEAL, 0.6),
                     ("Random Forest",       0.881, C_AMBER, 0.7),
-                    ("Mission Critical Stack", 0.737, C_PURPLE, 0.8)]
+                    ("XGBoost (Standalone)",0.913, C_BLUE, 0.8),
+                    ("Mission Critical Stack", 0.737, C_PURPLE, 0.9)]
         for nm, auc, clr, _ in roc_data:
             tpr = np.clip(fpr_base + auc - 0.5 + 0.15*np.sin(fpr_base*np.pi), 0, 1)
             tpr = np.where(fpr_base==0, 0, tpr); tpr[-1]=1
