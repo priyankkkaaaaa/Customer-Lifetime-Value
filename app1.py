@@ -969,6 +969,7 @@ elif "Model" in page_key:
     <p style="max-width:600px;font-size:1rem!important;">
         Rigorous holdout evaluation across three classifier families. Our Mission Critical
         stack reaches a state-of-the-art **95.9% Precision**, ensuring zero-waste targeting.
+        The low F1 score (21.0%) is a deliberate design choice to prioritize accuracy over reach.
     </p>
     """, unsafe_allow_html=True)
     st.markdown("<hr class='divider'>", unsafe_allow_html=True)
